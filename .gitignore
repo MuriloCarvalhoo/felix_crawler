@@ -14,3 +14,7 @@ htmlcov/
 *.sqlite*
 .codegraph/
 .playwright-mcp/
+target/
+data/
+*.profraw
+target/

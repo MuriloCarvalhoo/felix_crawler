@@ -1,0 +1,19 @@
+{
+  "arquivos": 140,
+  "concluidos": 140,
+  "concorrencia_clientes": 16,
+  "data_utc": "2026-10-20T21:38:43.516311103+00:00",
+  "health_amostras": 556,
+  "health_max_us": 114960,
+  "health_p95_us": 6426,
+  "latencia_upload_p95_us": 4173417,
+  "pipeline": {
+    "pdfs_ativos": 0,
+    "pico_pdfs_ativos": 2,
+    "status": "ok"
+  },
+  "respostas_429_retentadas": 16,
+  "segundos": 4.291016569,
+  "servidor_e_filhos_rss_pico_kib": 45964,
+  "servidor_rss_pico_kib": 12660
+}

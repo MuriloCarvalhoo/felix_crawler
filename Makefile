@@ -1,21 +1,22 @@
-.PHONY: install lock run test lint format
+.PHONY: build run test test-web lint coverage
 
-install:
-	uv sync --frozen
-
-lock:
-	uv lock
+build:
+	cargo build --release --locked -j 2
 
 run:
-	uv run streamlit run app.py --server.address 127.0.0.1
+	cargo run --locked -p felix-server
 
 test:
-	uv run pytest
+	cargo test --workspace --locked
+	$(MAKE) test-web
+
+test-web:
+	node --test tests/frontend.test.cjs
 
 lint:
-	uv run ruff check .
-	uv run ruff format --check .
+	cargo fmt --all -- --check
+	cargo clippy --workspace --all-targets --locked -- -D warnings
+	node --check web/app.js
 
-format:
-	uv run ruff check --fix .
-	uv run ruff format .
+coverage:
+	cargo llvm-cov --workspace --summary-only --fail-under-lines 80

@@ -1,0 +1,23 @@
+# Incluir as zonas no bloco http do nginx. Configurar TLS para o domínio real.
+limit_req_zone $binary_remote_addr zone=felix_requests:10m rate=5r/s;
+limit_conn_zone $binary_remote_addr zone=felix_connections:10m;
+
+server {
+    listen 127.0.0.1:8081;
+    server_name localhost;
+    client_max_body_size 21m;
+    client_body_timeout 20s;
+    large_client_header_buffers 4 8k;
+    limit_conn felix_connections 16;
+    limit_req zone=felix_requests burst=20 nodelay;
+    limit_req_status 429;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_request_buffering off;
+        proxy_read_timeout 65s;
+        proxy_send_timeout 65s;
+    }
+}

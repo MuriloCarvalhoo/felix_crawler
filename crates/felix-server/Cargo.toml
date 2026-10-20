@@ -1,0 +1,27 @@
+[package]
+name = "felix-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+felix-core.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "signal", "process", "fs", "io-util", "sync", "time", "macros"] }
+tower-http = { version = "0.6", features = ["timeout", "set-header", "limit"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
+tempfile = "3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+subtle = "2"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[lints]
+workspace = true

@@ -1,0 +1,35 @@
+[Unit]
+Description=Felix - empenhos e cobrancas
+After=network.target
+
+[Service]
+Type=simple
+User=felix
+Group=felix
+StateDirectory=felix
+WorkingDirectory=/var/lib/felix
+EnvironmentFile=/etc/felix/env
+Environment=DATABASE_PATH=/var/lib/felix/saas_cobrancas.db
+Environment=FELIX_BIND=127.0.0.1:8080
+ExecStart=/opt/felix/felix-server
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=25
+KillMode=control-group
+MemoryHigh=1536M
+MemoryMax=2G
+CPUQuota=180%
+TasksMax=64
+LimitNOFILE=1024
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

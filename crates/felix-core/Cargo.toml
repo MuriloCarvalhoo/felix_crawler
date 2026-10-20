@@ -1,0 +1,14 @@
+[package]
+name = "felix-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+chrono.workspace = true
+regex.workspace = true
+
+[lints]
+workspace = true
