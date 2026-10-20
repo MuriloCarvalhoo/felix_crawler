@@ -17,7 +17,7 @@ impl Config {
             bind: env::var("FELIX_BIND")
                 .unwrap_or_else(|_| "127.0.0.1:8080".into())
                 .parse()
-                .map_err(|_| "FELIX_BIND inválido.")?,
+                .map_err(|_| "FELIX_BIND inválido: use IP:porta, ex.: 127.0.0.1:8080.")?,
             database_path: env::var("DATABASE_PATH")
                 .unwrap_or_else(|_| "saas_cobrancas.db".into())
                 .into(),

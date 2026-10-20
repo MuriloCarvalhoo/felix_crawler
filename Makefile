@@ -3,8 +3,9 @@
 build:
 	cargo build --release --locked -j 2
 
+# O binário não lê .env; o shell do make (sh) exporta as variáveis antes de rodar.
 run:
-	cargo run --locked -p felix-server
+	set -a; [ ! -f .env ] || . ./.env; set +a; cargo run --locked -p felix-server
 
 test:
 	cargo test --workspace --locked
