@@ -263,17 +263,20 @@ Vários desses itens estão no [Roadmap](#-roadmap).
 
 ## 🚀 Início rápido
 
-**Requisitos:** Rust 1.96 (fixado em `rust-toolchain.toml`), Poppler (`pdfinfo`, `pdftotext`) e util-linux (`prlimit`).
+> **Em migração para SaaS multi-tenant** (branch `feat/saas-multitenant`): PostgreSQL 18 com RLS, API `/api/v1` e SPA em `frontend/`. Planejamento, decisões e contrato em [`docs/saas/`](docs/saas/README.md).
+
+**Requisitos:** Rust 1.96 (fixado em `rust-toolchain.toml`), Docker (Postgres de desenvolvimento), Poppler (`pdfinfo`, `pdftotext`) e util-linux (`prlimit`); Node 24 só para compilar o frontend.
 
 ```bash
 # Debian/Ubuntu
 sudo apt install poppler-utils util-linux
 
-make build
-./target/release/felix-server
+make db-up              # Postgres 18 em 127.0.0.1:55433 (deploy/compose.dev.yml)
+cp .env.example .env    # ajuste se necessário
+make dev                # aplica as migrações e serve em http://127.0.0.1:8090
 ```
 
-Abra <http://127.0.0.1:8080>. O padrão é modo demonstração, com CNPJ fictício e banco `saas_cobrancas.db` na pasta atual. `make run` executa a versão de desenvolvimento lendo o `.env`.
+`deploy/postgres-init.sql` roda na criação do volume e cria o papel `felix_app` (sem login, sem `BYPASSRLS`), o usuário `felix`/`felix` (membro de `felix_app`) e o banco `felix`. As migrações (`crates/felix-server/migrations/`) rodam no início do servidor ou com `felix-server migrar`. No desenvolvimento do frontend, o Vite (`127.0.0.1:5179`) faz proxy de `/api` para `127.0.0.1:8090`. `make db-down` para o banco; `make db-reset` apaga o volume.
 
 **Analisar PDFs pela linha de comando** (sem abrir o servidor e sem gravar no banco):
 
@@ -287,21 +290,26 @@ Cada linha de saída é um JSON com os dados extraídos e os avisos.
 
 ## ⚙️ Configuração
 
-Copie `.env.example` para `.env` e ajuste. O binário lê variáveis do processo e **não carrega o `.env` sozinho**:
+Copie `.env.example` para `.env` e ajuste. O binário lê variáveis do processo e **não carrega o `.env` sozinho** (`make dev` exporta o `.env`):
 
 ```bash
 set -a; source .env; set +a
-./target/release/felix-server
+./target/release/felix-server          # ou: felix-server migrar | felix-server analisar *.pdf
 ```
 
 | Variável | Padrão | Finalidade |
 |---|---|---|
-| `FELIX_BIND` | `127.0.0.1:8080` | Endereço e porta. Endereço externo exige token |
-| `DATABASE_PATH` | `saas_cobrancas.db` | Arquivo SQLite (compatível com o banco da versão anterior) |
-| `FELIX_EMPRESA_NOME` | `Demonstração local` | Razão social da empresa atendida |
-| `FELIX_EMPRESA_CNPJ` | `12345678000190` | CNPJ com 14 dígitos |
-| `FELIX_API_TOKEN` | *(vazio)* | Token Bearer de 32–256 caracteres ASCII. Obrigatório fora do `localhost` |
-| `RUST_LOG` | `felix_server=info` | Logs em JSON, sem texto dos documentos nem token |
+| `FELIX_ENV` | `prod` | **Sem a variável o servidor assume `prod`** (fail-closed): exige `DATABASE_URL` explícita sem as credenciais de dev, `FELIX_PUBLIC_URL` em https, cookie `Secure` e desativa rotas `/dev`. `make dev` e o `.env.example` usam `dev` |
+| `FELIX_BIND` | `127.0.0.1:8090` | Endereço e porta HTTP |
+| `DATABASE_URL` | dev: `postgres://felix:felix@127.0.0.1:55433/felix`; prod: obrigatória | Usuário precisa ser membro de `felix_app`; senhas `felix`/`postgres` são recusadas em prod |
+| `FELIX_PUBLIC_URL` | dev: `http://<FELIX_BIND>`; prod: obrigatória (https) | Links em e-mails; `Origin` aceita nas mutações |
+| `FELIX_FRONTEND_DIR` | `frontend/dist` | SPA; sem o diretório, só a API é servida |
+| `FELIX_TRANSPARENCIA_KEY` / `_URL` | vazio / `https://api.portaldatransparencia.gov.br` | API da CGU; sem chave a integração fica desativada; com chave, prod exige https |
+| `FELIX_SMTP_URL`, `FELIX_EMAIL_FROM` | vazio | Envio real de e-mail (opcional) |
+| `FELIX_TRUSTED_PROXIES` | loopback (`127.0.0.0/8`, `::1`) | IPs/CIDRs (vírgula) cujo `X-Real-IP`/`X-Forwarded-For` é aceito como IP do cliente |
+| `FELIX_PLANO_MANUAL` | `true` em dev, `false` em prod | Permite trocar para plano pago sem provedor de pagamento; com `false` só é possível ir para o Gratuito |
+| `FELIX_TEST_DATABASE_URL` | `postgres://postgres:postgres@127.0.0.1:55433/postgres` | Banco administrativo dos testes |
+| `RUST_LOG` | `felix_server=info,tower_http=info` | Logs em JSON com `request_id` |
 
 > Nunca publique o `.env`. Ele já está no `.gitignore`.
 
@@ -309,29 +317,14 @@ set -a; source .env; set +a
 
 ## 🔌 API
 
-Todas as rotas `/api/*` exigem `Authorization: Bearer <token>` quando há token configurado. Valores monetários trafegam em **centavos inteiros**; taxas em **centésimos de ponto percentual** (`100` = 1%).
+A API antiga (`/api/*` com token Bearer) foi removida. A nova API fica em `/api/v1`, com sessão em cookie `felix_sessao`, cabeçalho `X-Felix: 1` nas mutações e rotas por organização (`/api/v1/orgs/{org}/...`). O contrato completo está em [`docs/saas/03-api-v1.md`](docs/saas/03-api-v1.md). Valores monetários trafegam em **centavos inteiros**; taxas em **pontos-base** (`100` = 1%).
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/empresa` | Empresa configurada, modo e limites |
-| `POST` | `/api/analisar` | Envia PDFs (multipart) e devolve dados extraídos + avisos |
-| `GET` | `/api/empenhos?offset=0` | Lista empenhos (100 por página) |
-| `POST` | `/api/empenhos` | Cadastra empenho |
-| `POST` | `/api/empenhos/{id}/notas` | Vincula NF ao empenho (valida saldo) |
-| `GET` | `/api/notas?offset=0` | Notas pendentes com vencimento e atraso |
-| `GET` | `/api/notas/{id}/oficio?multa_bps=200&juros_bps=100` | Baixa a minuta do ofício |
-| `GET` | `/health` | Saúde e PDFs em processamento |
+| `GET` | `/health` | `{"status":"ok"}` |
+| `GET` | `/ready` | 200 se o banco responde; 503 caso contrário |
 
-**Códigos de resposta:**
-
-| Código | Significado |
-|---|---|
-| `400` | Dado inválido (formato, faixa, campo obrigatório) |
-| `401` | Token ausente ou inválido |
-| `403` | Registro de outra empresa, origem não autorizada ou demonstração fora do `localhost` |
-| `409` | Empenho/nota duplicado ou nota acima do saldo |
-| `413` | Arquivo ou lote acima do limite |
-| `429` | Servidor ocupado — tente de novo em 2 s (`Retry-After: 2`) |
+Erros usam o envelope `{"erro": {"codigo", "mensagem", "campos"?}}` com os códigos `nao_autenticado` (401), `proibido` (403), `nao_encontrado` (404), `validacao` (422), `conflito` (409), `limite_plano` (402), `ocupado` (429, `Retry-After: 2`), `indisponivel` (503) e `interno` (500).
 
 ---
 
@@ -357,56 +350,51 @@ Medição local documentada em [`docs/validacao-rust.md`](docs/validacao-rust.md
 
 ```text
 crates/
-├── felix-core/         # Regras puras: dinheiro, cálculo de cobrança, parser SIAFI
-└── felix-server/       # Configuração, SQLite, subprocessos PDF, HTTP e CLI
-    ├── examples/       # Teste de carga
-    └── tests/          # PDFs reais, API, limites, banco legado e concorrência
-web/                    # HTML/CSS/JS sem framework, embutido no binário
-tests/                  # Teste do frontend (Node)
-deploy/                 # Modelos de systemd e nginx (não instalados)
-docs/                   # PDFs de referência, validação e planejamento SaaS
+├── felix-core/           # Regras puras: dinheiro, cobrança, prazos/feriados, parser SIAFI
+├── felix-transparencia/  # Cliente da API da CGU + conciliação
+└── felix-server/         # Config, HTTP (axum), sessão, RLS, módulos, jobs, CLI
+    ├── migrations/       # SQL do Postgres (sqlx::migrate!)
+    └── tests/            # Postgres real (banco temporário por teste) e PDFs reais
+frontend/                 # SPA Vite + React + TanStack
+deploy/                   # Compose de dev, init do Postgres, modelos de systemd e nginx
+docs/                     # PDFs de referência, validação e planejamento SaaS
 ```
 
-- **Um único binário**: a interface web vai embutida; não precisa de Node nem build de frontend para rodar.
-- **Dinheiro sem ponto flutuante**: domínio e API usam centavos (`i64`). Colunas antigas `REAL` são lidas com arredondamento explícito para centavos.
-- **Banco legado preservado**: tabelas e colunas do SQLite anterior são mantidas; só são criados índices. WAL ativo. **Faça backup antes de abrir um banco existente.**
-- **Segurança**: `unsafe` proibido; `unwrap`/`expect`/`panic` negados em produção; comparação de token em tempo constante; CSP restritiva; PDFs processados sem shell e com limites de recursos.
+- **Um binário + PostgreSQL**: o servidor serve a API e a SPA compilada (`frontend/dist`) na mesma origem.
+- **Multi-tenant com RLS forçado**: toda tabela de tenant tem `organizacao_id`; as transações de tenant usam `SET LOCAL ROLE felix_app` e `app.org_id`.
+- **Dinheiro sem ponto flutuante**: domínio e API usam centavos (`i64`/`bigint`).
+- **Segurança**: `unsafe` proibido; `unwrap`/`expect`/`panic` negados em produção; senhas Argon2id; sessão opaca (só o SHA-256 no banco); CSP restritiva; PDFs processados sem shell e com limites de recursos.
 
 ---
 
 ## 🛠️ Desenvolvimento
 
 ```bash
-make test       # testes Rust + frontend
-make lint       # fmt, clippy -D warnings, checagem do JS
+make db-up      # Postgres do compose (necessário para os testes)
+make test       # testes Rust (+ frontend, se existir)
+make lint       # fmt, clippy -D warnings (+ lint do frontend)
+make build      # frontend/dist + binário release
 make coverage   # cobertura mínima de 80% (requer cargo-llvm-cov)
 ```
 
-Os testes com PDFs reais **falham** (não são pulados) se os arquivos ou o Poppler estiverem ausentes. Node é necessário só para o teste do frontend.
-
-**Teste de carga** com um servidor já iniciado:
-
-```bash
-cargo build --release --locked --example carga -j 2
-./target/release/examples/carga 8080 140 16 PID_DO_SERVIDOR
-```
+Os testes de integração criam um banco temporário por teste em `FELIX_TEST_DATABASE_URL` e **falham** (não são pulados) sem Postgres; o mesmo vale para os testes com PDFs reais sem os arquivos ou o Poppler.
 
 ---
 
 ## 📦 Deploy
 
-**Docker** (usuário sem privilégios, dependências de PDF incluídas):
+**Docker** (multi-stage: build da SPA com Node 24, release Rust, runtime Debian slim com Poppler, usuário sem privilégios; `FELIX_ENV=prod` e `FELIX_FRONTEND_DIR` definidos):
 
 ```bash
 docker build -t felix-crawler:local .
 docker run --rm --cpus=2 --memory=2g --pids-limit=64 --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=256m \
-  --env-file .env -e FELIX_BIND=0.0.0.0:8080 \
-  -e DATABASE_PATH=/data/saas_cobrancas.db \
-  -p 127.0.0.1:8080:8080 -v felix-data:/data felix-crawler:local
+  -e DATABASE_URL=postgres://felix:SENHA@HOST:5432/felix \
+  -e FELIX_PUBLIC_URL=https://felix.exemplo.com.br \
+  -p 127.0.0.1:8090:8090 felix-crawler:local
 ```
 
-**systemd + nginx:** [`deploy/felix.service`](deploy/felix.service) limita a aplicação a 180% de CPU e 2 GiB de RAM; [`deploy/nginx.conf.example`](deploy/nginx.conf.example) adiciona limites de conexão e cabeçalhos. São modelos para revisar. Configure **TLS e token** antes de expor à internet.
+**systemd + nginx:** [`deploy/felix.service`](deploy/felix.service) (Postgres, `FELIX_ENV=prod`, porta 8090, segredos em `/etc/felix/env`) e [`deploy/nginx.conf.example`](deploy/nginx.conf.example) (TLS, `X-Real-IP`, proxy para `127.0.0.1:8090`). Configure **TLS** antes de expor à internet.
 
 ---
 

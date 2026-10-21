@@ -15,7 +15,7 @@ Contrato compartilhado entre backend e frontend. Mudanças aqui exigem atualizar
 | Método | Caminho | Corpo / Query | Resposta |
 |---|---|---|---|
 | GET | `/health` | — | `{"status":"ok"}` (fora de `/api/v1`) |
-| GET | `/ready` | — | 200 se banco responde, 503 caso contrário |
+| GET | `/ready` | — | 200 `{status, executores_jobs}` se banco responde, 503 caso contrário |
 | POST | `/auth/cadastro` | `{nome, email, senha, organizacao_nome}` | 201 `Me`, define cookie |
 | POST | `/auth/login` | `{email, senha}` | 200 `Me`, define cookie; 401 `credenciais_invalidas` genérico |
 | POST | `/auth/logout` | — | 204, apaga cookie |
@@ -133,13 +133,29 @@ Pagamento: `valor_centavos` padrão = valor da nota; pagamento menor que o valor
 
 | Método | Caminho | Papel | Corpo / Query | Resposta |
 |---|---|---|---|---|
-| GET | `/orgs/{org}/integracoes/transparencia` | leitor | — | `{configurada_no_servidor, permitida_no_plano, ativa, ultima_sincronizacao_em, ultimo_status, ultimo_erro, pendentes}` |
+| GET | `/orgs/{org}/integracoes/transparencia` | leitor | — | `{configurada_no_servidor, permitida_no_plano, ativa, sincronizando, ultima_sincronizacao_em, ultimo_status: "ok"|"parcial"|"erro"|null, ultimo_erro, pendentes}` |
 | PATCH | `/orgs/{org}/integracoes/transparencia` | admin | `{ativa}` | igual |
-| POST | `/orgs/{org}/integracoes/transparencia/sincronizar` | admin | `{ano?}` | 202 `{job_id}`; 409 se já executando; 402 plano; 503 sem chave |
-| GET | `/orgs/{org}/integracoes/transparencia/documentos` | leitor | `situacao?=novo, fase?, pagina` | lista `[{id, empresa_cnpj, codigo, codigo_resumido, fase, data, valor_centavos, ug, ug_nome, orgao, observacao, empenho_codigo, situacao, sugestao: {tipo:"empenho"|"nota", id, rotulo}?}]` |
+| POST | `/orgs/{org}/integracoes/transparencia/sincronizar` | admin | `{ano?}` (corpo JSON obrigatório; `{}` usa o ano corrente) | 202 `{job_id}`; 409 se já executando; 402 plano; 503 sem chave |
+| GET | `/orgs/{org}/integracoes/transparencia/documentos` | leitor | `situacao?=novo, fase?, pagina` | lista `[{id, empresa_id, empresa_cnpj, codigo, codigo_resumido, fase, especie, data?, valor_centavos?, ug, ug_nome, orgao, observacao, empenho_codigo, empenho_id?, nota_id?, situacao, importado_em, sugestao: {tipo:"empenho"|"nota", id, rotulo}?}]`; `situacao=todos` aceito |
 | POST | `/orgs/{org}/integracoes/transparencia/documentos/{id}/vincular` | operador | `{empenho_id?}` ou `{nota_id?}` | documento; vínculo de fase 2/3 a nota cria evento `liquidada`/`paga` com origem `transparencia` |
 | POST | `/orgs/{org}/integracoes/transparencia/documentos/{id}/importar` | operador | — (fase 1) | 201 `Empenho` com origem `transparencia` |
 | POST | `/orgs/{org}/integracoes/transparencia/documentos/{id}/ignorar` | operador | — | documento |
+
+## Divergências registradas na implementação
+
+- Números de empenho e NF: até 40 caracteres; empenho gravado em maiúsculas.
+- Datas de emissão/recebimento/eventos entre 01/01/2000 e hoje; pagamento ≥ liquidação.
+- `Assinatura` inclui `provedor` e `troca_paga_disponivel`; `plano` é o efetivo (teste expirado = `gratuito`). Troca para plano pago exige `FELIX_PLANO_MANUAL=true` (padrão só em dev), senão 403; troca que deixa o uso acima dos novos limites → 409 com `campos`.
+- `POST /convites/{token}/aceitar` devolve `Me` + `organizacao_id`.
+- Limites: 429 em login (falhas por IP/e-mail, bloqueio progressivo), cadastro (5/h por IP), esqueci, redefinir e aceite; até 20 convites por org em 24 h; até 10 organizações criadas por usuário (409).
+- Cobrança registrada calcula encargos na data `enviada_em`.
+- Sincronização manual: no máximo 1 por organização por hora (409 com horário); `ultimo_status` pode ser `parcial` (orçamento de 600 requisições, truncamento ou falha de uma empresa/fase).
+- Exportação CSV aceita `?ano=AAAA`; acima de 50.000 linhas → 422.
+- Upload de PDF: 408 após 15 s sem dados ou 30 s de recebimento.
+- Vínculo de documento do Portal a nota segue as regras da transição manual; valor acima do da nota é limitado e registrado na observação.
+- `/auth/me/senha` com senha atual errada → 422 com campo `senha_atual`.
+- Convite inválido/expirado/usado → 404.
+- Nota paga: cálculo sem `data_referencia` usa a data do pagamento.
 
 ## Exportação
 

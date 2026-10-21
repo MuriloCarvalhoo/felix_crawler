@@ -57,3 +57,11 @@ Servidor release + Postgres do compose + `frontend/dist`. Roteiro em [06-verific
 13. Integração: sem chave → “não configurada”; com servidor falso → sincronizar → vincular/importar.
 14. Auditoria, exportação CSV, troca de organização, exclusão de organização.
 15. Console sem erros; leitura de tela (rótulos/landmarks) e layout em 390 px.
+
+## Execução (20/10/2026)
+
+- [x] Onda 0: A fundação, B prazos/feriados, C cliente Transparência, D fundação frontend.
+- [x] Onda 1: E identidade/orgs/planos, G empenhos/notas/cobrança/painel/CSV, H conta/configurações, I operação.
+- [x] Onda 2: J jobs/alertas/integração/legado, K notificações/integração.
+- [x] Revisões independentes (Rust, segurança, React) → correções F1 (auth/config), F2 (jobs/dados), FF (frontend).
+- [x] Onda 3: verificação no navegador de todas as funcionalidades — [06-verificacao-navegador.md](06-verificacao-navegador.md).

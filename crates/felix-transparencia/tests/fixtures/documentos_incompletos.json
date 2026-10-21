@@ -1,0 +1,18 @@
+[
+  {
+    "documento": "160203000012026NE000293",
+    "documentoResumido": null,
+    "valor": 8514,
+    "data": "2026-03-01",
+    "codigoUg": 160203
+  },
+  {
+    "documento": null,
+    "valor": "1234.56",
+    "data": "data inválida"
+  },
+  {
+    "valor": 0.29,
+    "observacao": null
+  }
+]

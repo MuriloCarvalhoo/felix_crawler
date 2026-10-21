@@ -14,4 +14,6 @@ Cada item tem um padrão já implementado, para o sistema funcionar sem a decis�
 | P-08 | Guardar PDFs e OCR | PDFs temporários, sem OCR | Armazenamento S3 compatível + OCR (Tesseract) | Guardar PDFs (anexo do empenho) quando houver storage; OCR só se aparecerem digitalizações |
 | P-09 | Texto do ofício e índice de atualização | Minuta atual, taxas zero, sem índice | IPCA-E, Selic, índice do contrato | Revisão jurídica do modelo; índice por contrato |
 | P-10 | Migração do SQLite legado em produção | Comando `importar-sqlite` disponível | Importar agora, importar depois, descartar | Importar após backup, na organização da empresa atual |
+| P-12 | Verificação de e-mail no cadastro | Cadastro libera teste de 14 dias sem confirmar e-mail; limitado a 5 cadastros/h por IP | Exigir confirmação antes do teste; antes do primeiro convite | Exigir confirmação antes de liberar o teste Profissional |
+| P-13 | Pagamento parcial | OB menor que a NF marca a nota como paga e mostra o valor pago | Manter; criar status `paga_parcial`; deixar aberta até completar | Status `paga_parcial` se clientes relatarem retenções frequentes |
 | P-11 | Commit/PR deste trabalho | Tudo no branch `feat/saas-multitenant`, sem commit | Commit único, commits por módulo, PR | Commits por módulo + PR para revisão |

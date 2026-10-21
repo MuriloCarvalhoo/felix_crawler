@@ -3,3 +3,5 @@
 pub mod cobranca;
 pub mod dinheiro;
 pub mod documento;
+pub mod feriados;
+pub mod prazos;

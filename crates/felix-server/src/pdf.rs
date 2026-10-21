@@ -1,5 +1,7 @@
 //! Processamento de PDF isolado e com concorrência limitada.
 
+use crate::{app::AppState, http::erro::ErroApi};
+use axum::extract::Multipart;
 use felix_core::documento::{Analise, Parser};
 use std::{
     path::{Path, PathBuf},
@@ -12,7 +14,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::{
-    io::AsyncReadExt,
+    io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
     sync::{OwnedSemaphorePermit, Semaphore},
 };
@@ -21,6 +23,26 @@ pub const MAX_PDF_BYTES: usize = 5 * 1024 * 1024;
 pub const MAX_TEXT_BYTES: u64 = 2 * 1024 * 1024;
 pub const MAX_PAGES: u32 = 100;
 pub const WORKERS: usize = 2;
+/// Lote de upload: até 20 MiB e 10 arquivos por requisição.
+pub const MAX_LOTE_BYTES: usize = 20 * 1024 * 1024;
+pub const MAX_ARQUIVOS: usize = 10;
+/// Limite de corpo da rota de análise (lote + envelope multipart).
+pub const LIMITE_CORPO_ANALISE: usize = MAX_LOTE_BYTES + 64 * 1024;
+
+/// Prazos de recebimento do upload: sem dados por mais de `inatividade`, ou
+/// mais de `total` esperando o corpo (sem contar a análise), a requisição
+/// termina com 408 e libera a vaga de admissão.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PrazosUpload {
+    pub inatividade: Duration,
+    pub total: Duration,
+}
+
+/// 15 s sem dados; 30 s de recebimento no total.
+pub const PRAZOS_UPLOAD: PrazosUpload = PrazosUpload {
+    inatividade: Duration::from_secs(15),
+    total: Duration::from_secs(30),
+};
 
 #[derive(Debug, Error)]
 pub enum ErroPdf {
@@ -208,4 +230,133 @@ async fn extrair(caminho: &PathBuf) -> Result<String, ErroPdf> {
         return Err(ErroPdf::SemTexto);
     }
     Ok(texto)
+}
+
+/// Resultado da análise de um arquivo do lote.
+#[derive(Debug, serde::Serialize)]
+pub struct ResultadoAnalise {
+    pub arquivo: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analise: Option<Analise>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erro: Option<String>,
+}
+
+fn erro_upload(status: axum::http::StatusCode, mensagem: &str) -> ErroApi {
+    ErroApi::novo(status, "validacao", mensagem)
+}
+
+/// Aguarda uma leitura do multipart respeitando os [`PrazosUpload`];
+/// `gasto` acumula o tempo de recebimento.
+async fn com_prazo<T>(
+    leitura: impl Future<Output = T>,
+    prazos: PrazosUpload,
+    gasto: &mut Duration,
+) -> Result<T, ErroApi> {
+    let restante = prazos.total.saturating_sub(*gasto);
+    let limite = prazos.inatividade.min(restante);
+    let inicio = tokio::time::Instant::now();
+    let resultado = tokio::time::timeout(limite, leitura).await;
+    *gasto = gasto.saturating_add(inicio.elapsed());
+    resultado.map_err(|_| {
+        erro_upload(
+            axum::http::StatusCode::REQUEST_TIMEOUT,
+            "Envio do arquivo parado ou lento demais; tente novamente.",
+        )
+    })
+}
+
+/// Recebe um multipart com até 10 PDFs (campo livre, ex. `arquivos`), grava cada um
+/// em arquivo temporário privado e analisa no pipeline (2 workers). Admite até 8
+/// requisições simultâneas (excesso → 429 `ocupado`). Erros de um arquivo não
+/// interrompem o lote: vão em `erro`. Upload parado por 15 s (ou 30 s
+/// recebendo no total) → 408. A rota deve ter
+/// `DefaultBodyLimit::max(LIMITE_CORPO_ANALISE)`.
+pub async fn receber_e_analisar(
+    estado: &AppState,
+    multipart: Multipart,
+) -> Result<Vec<ResultadoAnalise>, ErroApi> {
+    receber_e_analisar_com_prazos(estado, multipart, PRAZOS_UPLOAD).await
+}
+
+/// [`receber_e_analisar`] com prazos de recebimento explícitos.
+pub async fn receber_e_analisar_com_prazos(
+    estado: &AppState,
+    mut multipart: Multipart,
+    prazos: PrazosUpload,
+) -> Result<Vec<ResultadoAnalise>, ErroApi> {
+    use axum::http::StatusCode;
+    let mut gasto = Duration::ZERO;
+    let _admissao = Arc::clone(&estado.admissao)
+        .try_acquire_owned()
+        .map_err(|_| ErroApi::ocupado())?;
+    let mut resultados = Vec::with_capacity(MAX_ARQUIVOS);
+    let mut total = 0_usize;
+    while let Some(mut campo) = com_prazo(multipart.next_field(), prazos, &mut gasto)
+        .await?
+        .map_err(|_| {
+            erro_upload(
+                StatusCode::BAD_REQUEST,
+                "Upload multipart inválido ou acima do limite.",
+            )
+        })?
+    {
+        let Some(nome) = campo.file_name() else {
+            return Err(ErroApi::validacao("Envie arquivos PDF no formulário."));
+        };
+        if resultados.len() >= MAX_ARQUIVOS {
+            return Err(erro_upload(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "O lote admite até 10 arquivos.",
+            ));
+        }
+        let nome: String = nome.chars().filter(|c| !c.is_control()).take(160).collect();
+        let temporario = tempfile::NamedTempFile::new()
+            .map_err(|e| ErroApi::interno_log("upload temporário", e))?
+            .into_temp_path();
+        let mut saida = tokio::fs::File::create(&temporario)
+            .await
+            .map_err(|e| ErroApi::interno_log("upload temporário", e))?;
+        let mut tamanho = 0_usize;
+        while let Some(pedaco) = com_prazo(campo.chunk(), prazos, &mut gasto)
+            .await?
+            .map_err(|_| {
+                erro_upload(
+                    StatusCode::BAD_REQUEST,
+                    "Upload interrompido ou acima do limite.",
+                )
+            })?
+        {
+            tamanho = tamanho.saturating_add(pedaco.len());
+            total = total.saturating_add(pedaco.len());
+            if tamanho > MAX_PDF_BYTES || total > MAX_LOTE_BYTES {
+                return Err(erro_upload(
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "Limite: 5 MiB por PDF e 20 MiB por lote.",
+                ));
+            }
+            saida
+                .write_all(&pedaco)
+                .await
+                .map_err(|e| ErroApi::interno_log("gravar upload", e))?;
+        }
+        saida
+            .flush()
+            .await
+            .map_err(|e| ErroApi::interno_log("concluir upload", e))?;
+        drop(saida);
+        let (analise, erro) = match estado.pipeline.analisar(&temporario).await {
+            Ok(a) => (Some(a), None),
+            Err(e) => (None, Some(e.to_string())),
+        };
+        resultados.push(ResultadoAnalise {
+            arquivo: nome,
+            analise,
+            erro,
+        });
+    }
+    if resultados.is_empty() {
+        return Err(ErroApi::validacao("Selecione pelo menos um PDF."));
+    }
+    Ok(resultados)
 }

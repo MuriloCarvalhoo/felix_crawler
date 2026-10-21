@@ -29,7 +29,7 @@ Formato curto: contexto → decisão → alternativas → consequência. Data de
 ## ADR-006 Autenticação própria com sessão opaca em cookie — Tomada
 - **Decisão:** senha com Argon2id (parâmetros OWASP: m=19 MiB, t=2, p=1). Sessão: token aleatório de 32 bytes no cookie `felix_sessao` (`HttpOnly`, `SameSite=Lax`, `Secure` fora de dev, `Path=/`); banco guarda só SHA-256 do token. Expiração deslizante de 7 dias, absoluta de 30 dias. Logout revoga. Troca/redefinição de senha revoga as outras sessões.
 - **CSRF:** `SameSite=Lax` + verificação de `Origin`/`Host` nas mutações + cabeçalho obrigatório `X-Felix: 1` em métodos não-GET.
-- **Limite de tentativas:** login e “esqueci a senha” limitados por IP e por e-mail em memória (janela de 15 min).
+- **Limite de tentativas:** em memória, chaves com SHA-256 truncado. Login conta só falhas: 30 por IP em 15 min e, por e-mail, bloqueio curto progressivo (5 falhas → 1 min, 10 → 5 min, 20 → 15 min; login correto zera). “Esqueci a senha” 10/15 min por IP e por e-mail (responde 204 na hora e trabalha em segundo plano); cadastro 5/h por IP; redefinição e aceite de convite 20/15 min por IP; troca de senha 5 falhas/15 min por usuário. Argon2 roda com no máximo 2 hashes simultâneos.
 - **Alternativas:** JWT (revogação ruim), IdP externo (decisão pendente P-06).
 
 ## ADR-007 Roteamento por organização no caminho — Tomada
@@ -58,9 +58,10 @@ Formato curto: contexto → decisão → alternativas → consequência. Data de
 
 ## ADR-013 Planos aplicados no servidor; cobrança real adiada — Tomada (provedor pendente P-02)
 - Tabela `assinaturas` (plano, status, fim do teste). Limites verificados nas criações; excesso retorna 402 `limite_plano`. Interface `ProvedorPagamento` com implementação `manual`; webhook real fica para a decisão P-02.
+- `FELIX_PLANO_MANUAL` (padrão `false` em prod, `true` em dev): com `false`, `POST /orgs/{org}/assinatura` só aceita ir para o Gratuito (pago → 403 até existir provedor). Qualquer mudança exige que o uso caiba nos limites do novo plano (409 com o que excede).
 
 ## ADR-014 Integração com Portal da Transparência — Tomada (chave pendente P-01)
-- Crate `felix-transparencia` com `reqwest` (rustls), URL base configurável, cabeçalho `chave-api-dados`, limite próprio de 90 req/min (metade do limite oficial de 180) e paginação até página vazia. Documentos guardados em `documentos_transparencia` (único por organização + código). Conciliação sugere vínculo por UG + número do empenho (`documentoResumido`/`documento`); confirmação é humana. Sem chave: integração aparece como “não configurada”. Testes usam servidor HTTP falso.
+- Crate `felix-transparencia` com `reqwest` (rustls), URL base configurável, cabeçalho `chave-api-dados`, limite próprio de 90 req/min (metade do limite oficial de 180) e paginação até página vazia. Documentos guardados em `documentos_transparencia` (único por organização + código). Conciliação sugere vínculo por UG + número do empenho (`documentoResumido`/`documento`); confirmação é humana. Para liquidação/pagamento, sugere a nota aberta de valor idêntico; sem valor idêntico, sugere a única nota aberta do empenho (OB costuma vir líquida de retenções); empate → sem sugestão. Sem chave: integração aparece como “não configurada”. Testes usam servidor HTTP falso.
 
 ## ADR-015 PDFs continuam temporários — Tomada
 - Mantido o pipeline atual (Poppler isolado, limites de CPU/memória, 2 workers). Nada de armazenamento permanente sem decisão P-08.
@@ -73,6 +74,15 @@ Formato curto: contexto → decisão → alternativas → consequência. Data de
 
 ## ADR-018 Auditoria de mutações — Tomada
 - `auditoria(organizacao_id, usuario_id, acao, entidade, entidade_id, dados jsonb, ip, criado_em)`. Gravada na mesma transação da mutação. Sem dados de senha/token.
+
+## ADR-020 CNPJ alfanumérico aceito — Tomada
+- **Contexto:** IN RFB 2.229/2024: CNPJs novos podem ser alfanuméricos desde julho/2026.
+- **Decisão:** CNPJ normalizado = 14 posições em maiúsculas sem máscara; 12 primeiras `[A-Z0-9]`, 2 últimas dígitos; DV módulo 11 com valor do caractere = ASCII − 48. Vale para backend (`empresas::validar_cnpj`) e frontend (`validarCNPJ`/`mascararCNPJ`). O parser SIAFI continua lendo o formato numérico dos PDFs atuais.
+
+## ADR-021 Eventos de autenticação — Tomada
+- **Contexto:** a auditoria (ADR-018) é por organização; login, logout e senha são do usuário e precisam de trilha para investigar abuso.
+- **Decisão:** tabela global `eventos_autenticacao(id, usuario_id null, email_hash, tipo, ip, user_agent, criado_em)`, sem RLS e sem endpoint. Tipos: `login_sucesso`, `login_falha`, `logout`, `senha_trocada`, `senha_redefinida`. Nunca grava senha nem e-mail em claro (SHA-256 do e-mail normalizado). Índice por usuário/data. O papel `felix_app` não pode alterar nem apagar linhas (o mesmo vale para `auditoria`).
+- **Consequência:** consulta só via banco por enquanto; retenção/purga a definir junto com a política de dados.
 
 ## ADR-019 Testes — Tomada
 - Rust: testes de integração contra Postgres real do compose (`FELIX_TEST_DATABASE_URL`); sem banco, os testes **falham** (não pulam). Cada teste cria um banco temporário. Frontend: Vitest + Testing Library; verificação ponta a ponta no navegador ao final.

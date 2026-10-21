@@ -1,0 +1,22 @@
+[
+  {
+    "empenho": "160203000012026NE000290",
+    "subitem": "30 - MATERIAL DE CONSUMO",
+    "empenhoResumido": "2026NE000290",
+    "valorLiquidado": "32.450,00",
+    "valorPago": "0,00",
+    "valorRestoInscrito": "0,00",
+    "valorRestoCancelado": "0,00",
+    "valorRestoPago": "0,00"
+  },
+  {
+    "empenho": "160203000012026NE000290",
+    "subitem": "39 - OUTROS SERVICOS DE TERCEIROS - PJ",
+    "empenhoResumido": "2026NE000290",
+    "valorLiquidado": "0,00",
+    "valorPago": "0,00",
+    "valorRestoInscrito": "0,00",
+    "valorRestoCancelado": "0,00",
+    "valorRestoPago": "0,00"
+  }
+]

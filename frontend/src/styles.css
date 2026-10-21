@@ -1,0 +1,240 @@
+@import '@fontsource-variable/public-sans/wght.css';
+@import 'tailwindcss';
+
+/*
+ * Felix: paleta "Tesouro".
+ * Papel frio, tinta verde-escura, verde do Tesouro como ação, lacre (vermelho de cera)
+ * para vencido e âmbar para o que vence em breve. Componentes usam só tokens, então
+ * o tema escuro troca as variáveis e não precisa de variantes `dark:`.
+ */
+:root {
+  --papel: #f4f6f5;
+  --superficie: #ffffff;
+  --superficie-2: #edf1ef;
+  --superficie-3: #e3e9e6;
+  --linha: #d5ddd9;
+  --linha-forte: #b4c1bb;
+  --tinta: #15231e;
+  --tinta-2: #45554e;
+  --tinta-3: #62716a;
+  --tesouro: #0e5e4d;
+  --tesouro-forte: #0a4a3c;
+  --tesouro-claro: #e0efe9;
+  --sobre-tesouro: #ffffff;
+  --lacre: #b3362a;
+  --lacre-forte: #932a20;
+  --lacre-claro: #fbe8e4;
+  --ambar: #8a5608;
+  --ambar-claro: #fbefd8;
+  --anil: #2c5687;
+  --anil-claro: #e5edf7;
+  --barra: #13261f;
+  --barra-2: #1c3329;
+  --barra-tinta: #d3e0da;
+  --barra-tinta-2: #92a89e;
+  --foco: #1d7a65;
+  --sombra: 0 1px 2px rgb(21 35 30 / 0.06), 0 4px 16px rgb(21 35 30 / 0.06);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) {
+    --papel: #0e1512;
+    --superficie: #141d19;
+    --superficie-2: #1a2520;
+    --superficie-3: #22302a;
+    --linha: #2a3832;
+    --linha-forte: #3d4e46;
+    --tinta: #e2eae6;
+    --tinta-2: #a9b8b1;
+    --tinta-3: #8b9b94;
+    --tesouro: #4fb89b;
+    --tesouro-forte: #6fcdb2;
+    --tesouro-claro: #183129;
+    --sobre-tesouro: #06130e;
+    --lacre: #f08072;
+    --lacre-forte: #f59a8e;
+    --lacre-claro: #3a1c18;
+    --ambar: #e6b45c;
+    --ambar-claro: #33270f;
+    --anil: #93b8e4;
+    --anil-claro: #17243a;
+    --barra: #0a100d;
+    --barra-2: #15201b;
+    --barra-tinta: #d3e0da;
+    --barra-tinta-2: #8a9c94;
+    --foco: #6fcdb2;
+    --sombra: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+    color-scheme: dark;
+  }
+}
+
+:root[data-tema='escuro'] {
+  --papel: #0e1512;
+  --superficie: #141d19;
+  --superficie-2: #1a2520;
+  --superficie-3: #22302a;
+  --linha: #2a3832;
+  --linha-forte: #3d4e46;
+  --tinta: #e2eae6;
+  --tinta-2: #a9b8b1;
+  --tinta-3: #8b9b94;
+  --tesouro: #4fb89b;
+  --tesouro-forte: #6fcdb2;
+  --tesouro-claro: #183129;
+  --sobre-tesouro: #06130e;
+  --lacre: #f08072;
+  --lacre-forte: #f59a8e;
+  --lacre-claro: #3a1c18;
+  --ambar: #e6b45c;
+  --ambar-claro: #33270f;
+  --anil: #93b8e4;
+  --anil-claro: #17243a;
+  --barra: #0a100d;
+  --barra-2: #15201b;
+  --barra-tinta: #d3e0da;
+  --barra-tinta-2: #8a9c94;
+  --foco: #6fcdb2;
+  --sombra: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-papel: var(--papel);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-superficie-3: var(--superficie-3);
+  --color-linha: var(--linha);
+  --color-linha-forte: var(--linha-forte);
+  --color-tinta: var(--tinta);
+  --color-tinta-2: var(--tinta-2);
+  --color-tinta-3: var(--tinta-3);
+  --color-tesouro: var(--tesouro);
+  --color-tesouro-forte: var(--tesouro-forte);
+  --color-tesouro-claro: var(--tesouro-claro);
+  --color-sobre-tesouro: var(--sobre-tesouro);
+  --color-lacre: var(--lacre);
+  --color-lacre-forte: var(--lacre-forte);
+  --color-lacre-claro: var(--lacre-claro);
+  --color-ambar: var(--ambar);
+  --color-ambar-claro: var(--ambar-claro);
+  --color-anil: var(--anil);
+  --color-anil-claro: var(--anil-claro);
+  --color-barra: var(--barra);
+  --color-barra-2: var(--barra-2);
+  --color-barra-tinta: var(--barra-tinta);
+  --color-barra-tinta-2: var(--barra-tinta-2);
+  --color-foco: var(--foco);
+
+  --shadow-elevado: var(--sombra);
+
+  --radius-campo: 5px;
+  --radius-bloco: 8px;
+  --radius-janela: 12px;
+
+  /* Escala tipográfica modular (razão ~1,2), base 15px para densidade de dados. */
+  --text-mini: 0.75rem;
+  --text-mini--line-height: 1rem;
+  --text-detalhe: 0.8125rem;
+  --text-detalhe--line-height: 1.15rem;
+  --text-corpo: 0.9375rem;
+  --text-corpo--line-height: 1.45rem;
+  --text-titulo: 1.375rem;
+  --text-titulo--line-height: 1.75rem;
+  --text-titulo-grande: 1.75rem;
+  --text-titulo-grande--line-height: 2.1rem;
+  --text-cifra: 1.875rem;
+  --text-cifra--line-height: 2.1rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--font-sans);
+    font-size: var(--text-corpo);
+    line-height: var(--text-corpo--line-height);
+    font-feature-settings: 'ss01' on;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--foco);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--tesouro-claro);
+    color: var(--tinta);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Algarismos tabulares para colunas de valores e datas. */
+  .cifras {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+  }
+}
+
+@keyframes felix-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes felix-fundo {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes felix-pulso {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animar-janela {
+  animation: felix-entrar 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.animar-fundo {
+  animation: felix-fundo 160ms ease-out;
+}
+
+.esqueleto {
+  animation: felix-pulso 1.6s ease-in-out infinite;
+}

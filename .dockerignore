@@ -5,6 +5,9 @@
 !clippy.toml
 !crates/
 !crates/**
-!web/
-!web/**
+!frontend/
+!frontend/**
 crates/**/tests/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/

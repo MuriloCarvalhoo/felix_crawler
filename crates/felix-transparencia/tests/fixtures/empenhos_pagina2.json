@@ -1,0 +1,19 @@
+[
+  {
+    "data": "20/01/2026",
+    "documento": "160203000012026NE000292",
+    "documentoResumido": "2026NE000292",
+    "observacao": "AQUISICAO DE MATERIAL DE CONSUMO CONFORME PREGAO SRP 90012/2025",
+    "fase": "Empenho",
+    "especie": "Original",
+    "codigoFavorecido": "19116488000145",
+    "nomeFavorecido": "FORNECEDOR EXEMPLO LTDA",
+    "valor": "13.351,00",
+    "codigoUg": "160203",
+    "ug": "UNIDADE GESTORA 160203",
+    "orgao": "Comando do Exército",
+    "numeroProcesso": "64000.000123/2026-11",
+    "favorecidoIntermediario": false,
+    "favorecidoListaFaturas": false
+  }
+]

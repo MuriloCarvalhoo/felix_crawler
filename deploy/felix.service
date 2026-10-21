@@ -1,17 +1,33 @@
+# Modelo systemd do Felix SaaS (Postgres + porta 8090 atrás do nginx).
+# Instalação:
+#   - binário em /opt/felix/felix-server e SPA em /opt/felix/frontend/dist;
+#   - /etc/felix/env (chmod 600, dono root) com pelo menos:
+#       DATABASE_URL=postgres://felix:<SENHA-FORTE>@127.0.0.1:5432/felix
+#       FELIX_PUBLIC_URL=https://felix.exemplo.com.br
+#     e, se usados: FELIX_TRANSPARENCIA_KEY, FELIX_SMTP_URL, FELIX_EMAIL_FROM,
+#     FELIX_TRUSTED_PROXIES (padrão: loopback, o nginx local).
+#   - Postgres 18 com o papel felix_app e o usuário felix (deploy/postgres-init.sql,
+#     trocando a senha). As migrações rodam no início do serviço.
+#   - Poppler (pdfinfo, pdftotext) e util-linux (prlimit) instalados.
+# FELIX_ENV=prod: cookie Secure, sem /api/v1/dev, recusa credenciais de dev e
+# exige https; troca de plano pago fica desligada (FELIX_PLANO_MANUAL=false).
+
 [Unit]
-Description=Felix - empenhos e cobrancas
-After=network.target
+Description=Felix - empenhos e cobrancas (SaaS)
+After=network-online.target postgresql.service
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=felix
 Group=felix
-StateDirectory=felix
-WorkingDirectory=/var/lib/felix
+WorkingDirectory=/opt/felix
 EnvironmentFile=/etc/felix/env
-Environment=DATABASE_PATH=/var/lib/felix/saas_cobrancas.db
-Environment=FELIX_BIND=127.0.0.1:8080
-ExecStart=/opt/felix/felix-server
+Environment=FELIX_ENV=prod
+Environment=FELIX_BIND=127.0.0.1:8090
+Environment=FELIX_FRONTEND_DIR=/opt/felix/frontend/dist
+Environment=RUST_LOG=felix_server=info,tower_http=info
+ExecStart=/opt/felix/felix-server servir
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=25

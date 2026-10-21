@@ -1,0 +1,19 @@
+[
+  {
+    "data": "10/02/2026",
+    "documento": "160203000012026NS000123",
+    "documentoResumido": "2026NS000123",
+    "observacao": "LIQUIDACAO REF. NF 1234 - EMPENHO 2026NE000290",
+    "fase": "Liquidação",
+    "especie": "Original",
+    "codigoFavorecido": "19116488000145",
+    "nomeFavorecido": "FORNECEDOR EXEMPLO LTDA",
+    "valor": "32.450,00",
+    "codigoUg": "160203",
+    "ug": "UNIDADE GESTORA 160203",
+    "orgao": "Comando do Exército",
+    "numeroProcesso": "64000.000123/2026-11",
+    "favorecidoIntermediario": false,
+    "favorecidoListaFaturas": false
+  }
+]

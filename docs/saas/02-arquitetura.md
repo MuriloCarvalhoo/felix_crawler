@@ -32,20 +32,22 @@ docs/saas/                  pesquisa, produto, decisões, API, plano, verificaç
 
 | Variável | Padrão | Uso |
 |---|---|---|
-| `FELIX_ENV` | `dev` | `dev` ou `prod`; `prod` exige cookie Secure e desativa rotas `/dev` |
+| `FELIX_ENV` | `prod` | `dev` ou `prod`. Ausente = `prod` (fail-closed): exige `DATABASE_URL` explícita sem credenciais de dev, `FELIX_PUBLIC_URL` https, cookie Secure e desativa rotas `/dev` |
 | `FELIX_BIND` | `127.0.0.1:8090` | Endereço HTTP |
-| `DATABASE_URL` | `postgres://felix:felix@127.0.0.1:55433/felix` | Conexão (usuário deve ser membro de `felix_app`) |
-| `FELIX_PUBLIC_URL` | `http://127.0.0.1:8090` | Links em e-mails; origem aceita |
+| `DATABASE_URL` | dev: `postgres://felix:felix@127.0.0.1:55433/felix`; prod: obrigatória | Conexão (usuário deve ser membro de `felix_app`); senhas `felix`/`postgres` recusadas em prod |
+| `FELIX_PUBLIC_URL` | dev: `http://127.0.0.1:8090`; prod: obrigatória | Links em e-mails; origem aceita |
 | `FELIX_FRONTEND_DIR` | `frontend/dist` | Arquivos estáticos da SPA |
 | `FELIX_TRANSPARENCIA_KEY` | vazio | Chave da CGU; vazio desativa a integração |
-| `FELIX_TRANSPARENCIA_URL` | `https://api.portaldatransparencia.gov.br` | Base (testes usam servidor falso) |
+| `FELIX_TRANSPARENCIA_URL` | `https://api.portaldatransparencia.gov.br` | Base (testes usam servidor falso); com chave em prod, só https |
 | `FELIX_SMTP_URL`, `FELIX_EMAIL_FROM` | vazio | Envio real de e-mail |
+| `FELIX_TRUSTED_PROXIES` | `127.0.0.0/8,::1` | Proxies (IPs/CIDRs) cujo `X-Real-IP` (ou último item de `X-Forwarded-For`) vale como IP do cliente |
+| `FELIX_PLANO_MANUAL` | dev `true`, prod `false` | Troca para plano pago sem provedor; `false` só permite ir para o Gratuito (ADR-013) |
 | `FELIX_TEST_DATABASE_URL` | — | Banco administrativo para testes (cria bancos temporários) |
 | `RUST_LOG` | `felix_server=info` | Logs JSON |
 
 ## Modelo de dados (PostgreSQL)
 
-Tabelas globais (sem RLS): `usuarios`, `sessoes`, `tokens_usuario` (redefinição/convite), `organizacoes`, `membros`, `convites`, `assinaturas`, `jobs`, `emails_saida`.
+Tabelas globais (sem RLS): `usuarios`, `sessoes`, `tokens_usuario` (redefinição/convite), `organizacoes`, `membros`, `convites`, `assinaturas`, `jobs`, `emails_saida`, `eventos_autenticacao` (somente inserção).
 Tabelas de tenant (com `organizacao_id` e RLS forçado): `empresas`, `empenhos`, `notas`, `eventos_nota`, `cobrancas`, `notificacoes`, `documentos_transparencia`, `auditoria`, `integracoes`.
 
 > `membros`, `convites` e `assinaturas` têm `organizacao_id`, mas são consultadas antes de existir contexto de organização (login, aceite de convite). Elas não usam RLS; o acesso é sempre filtrado por código e coberto por testes.
